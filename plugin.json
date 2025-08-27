@@ -1,0 +1,7 @@
+{
+    "name": "Webhook Progress Plugin",
+    "author": "Harrison Riehle",
+    "version": "1.0.0",
+    "supported_sdk_versions": ["8.0.0", "8.1.0", "8.2.0"],
+    "description": "Sends print progress updates to a webhook URL every 1% of progress"
+}
