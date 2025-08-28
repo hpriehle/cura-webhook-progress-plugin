@@ -56,9 +56,9 @@ class WebhookProgressPlugin(Extension, QObject):
         You can extend this to use Cura's preference system."""
         # TODO: Implement proper settings dialog
         # For now, set your webhook URL here:
-        self._webhook_url = "https://your-webhook-url.com/progress"
+        self._webhook_url = "https://api.automaddie.co/webhook/cura-updater"
         
-        if not self._webhook_url or self._webhook_url == "https://your-webhook-url.com/progress":
+        if not self._webhook_url:
             Logger.log("w", "No webhook URL configured for WebhookProgressPlugin. Please update the URL in WebhookProgressPlugin.py")
 
     def _on_printer_output_devices_changed(self) -> None:
@@ -127,7 +127,7 @@ class WebhookProgressPlugin(Extension, QObject):
 
     def _check_print_progress(self) -> None:
         """Periodically check print progress from connected devices."""
-        if not self._webhook_url or self._webhook_url == "https://your-webhook-url.com/progress":
+        if not self._webhook_url:
             return
             
         try:
@@ -158,7 +158,7 @@ class WebhookProgressPlugin(Extension, QObject):
 
     def _send_webhook_update(self, event_type: str, data: Dict[str, Any]) -> None:
         """Send update to webhook URL."""
-        if not self._webhook_url or self._webhook_url == "https://your-webhook-url.com/progress":
+        if not self._webhook_url:
             Logger.log("w", "Webhook URL not configured, skipping update")
             return
             
