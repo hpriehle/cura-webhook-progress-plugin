@@ -11,11 +11,16 @@ from UM.Application import Application
 from UM.Logger import Logger
 from UM.Signal import signalemitter
 from UM.i18n import i18nCatalog
-from UM.Qt.QtCore import QTimer, pyqtSlot, QObject, pyqtSignal
+
+try:
+    from PyQt6.QtCore import QTimer, QObject, pyqtSignal
+except ImportError:
+    try:
+        from PyQt5.QtCore import QTimer, QObject, pyqtSignal
+    except ImportError:
+        from UM.Qt.QtCore import QTimer, QObject, pyqtSignal
 
 from cura.CuraApplication import CuraApplication
-from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice
-from cura.PrinterOutput.NetworkedPrinterOutputDevice import NetworkedPrinterOutputDevice
 
 i18n_catalog = i18nCatalog("cura")
 
@@ -61,10 +66,19 @@ class WebhookProgressPlugin(Extension, QObject):
         output_devices = self._application.getMachineManager().printerOutputDevices
         
         for device in output_devices:
-            if hasattr(device, 'printJobChanged'):
-                device.printJobChanged.connect(self._on_print_job_changed)
-            if hasattr(device, 'printProgressChanged'):
-                device.printProgressChanged.connect(self._on_print_progress_changed)
+            try:
+                if hasattr(device, 'printJobChanged'):
+                    device.printJobChanged.connect(self._on_print_job_changed)
+                if hasattr(device, 'printProgressChanged'):
+                    device.printProgressChanged.connect(self._on_print_progress_changed)
+                if hasattr(device, 'connectionStateChanged'):
+                    device.connectionStateChanged.connect(self._on_connection_state_changed)
+            except Exception as e:
+                Logger.log("w", f"Could not connect to device signals: {e}")
+
+    def _on_connection_state_changed(self, connection_state) -> None:
+        """Called when printer connection state changes."""
+        Logger.log("d", f"Printer connection state changed: {connection_state}")
 
     def _on_print_job_changed(self, job) -> None:
         """Called when print job changes."""
@@ -116,28 +130,31 @@ class WebhookProgressPlugin(Extension, QObject):
         if not self._webhook_url or self._webhook_url == "https://your-webhook-url.com/progress":
             return
             
-        output_devices = self._application.getMachineManager().printerOutputDevices
-        
-        for device in output_devices:
-            if hasattr(device, 'activePrintJob'):
-                job = device.activePrintJob
-                if job is not None:
-                    if not self._is_printing:
-                        # New print job detected
-                        self._on_print_job_changed(job)
-                    
-                    # Get progress
-                    progress = 0.0
-                    if hasattr(job, 'getProgress'):
-                        progress = job.getProgress()
-                    elif hasattr(device, 'printProgress'):
-                        progress = device.printProgress
-                    
-                    if progress is not None:
-                        self._on_print_progress_changed(progress)
-                elif self._is_printing:
-                    # Print job ended
-                    self._on_print_job_changed(None)
+        try:
+            output_devices = self._application.getMachineManager().printerOutputDevices
+            
+            for device in output_devices:
+                if hasattr(device, 'activePrintJob'):
+                    job = device.activePrintJob
+                    if job is not None:
+                        if not self._is_printing:
+                            # New print job detected
+                            self._on_print_job_changed(job)
+                        
+                        # Get progress
+                        progress = 0.0
+                        if hasattr(job, 'getProgress'):
+                            progress = job.getProgress()
+                        elif hasattr(device, 'printProgress'):
+                            progress = device.printProgress
+                        
+                        if progress is not None:
+                            self._on_print_progress_changed(progress)
+                    elif self._is_printing:
+                        # Print job ended
+                        self._on_print_job_changed(None)
+        except Exception as e:
+            Logger.log("e", f"Error checking print progress: {e}")
 
     def _send_webhook_update(self, event_type: str, data: Dict[str, Any]) -> None:
         """Send update to webhook URL."""
